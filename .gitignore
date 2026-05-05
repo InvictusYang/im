@@ -1,0 +1,11 @@
+node_modules/
+data/
+uploads/
+.env
+.env.*
+*.db
+.DS_Store
+dist/
+build/
+logs/
+nginx/ssl/

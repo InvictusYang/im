@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # P2PChat 应用服务
+  p2pchat:
+    build: .
+    container_name: p2pchat-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-very-secure-secret-key-at-least-32-chars}
+      - DB_PATH=/app/data/chat.db
+      - UPLOAD_PATH=/app/uploads
+      - MAX_FILE_SIZE=5242880
+      - BACKUP_DIR=/app/data/backups
+      - ARCHIVE_DIR=/app/data/archives
+      - BACKUP_RETENTION_DAYS=30
+      - ARCHIVE_DAYS=90
+    volumes:
+      # 持久化数据
+      - p2pchat-data:/app/data
+      - p2pchat-uploads:/app/uploads
+      - p2pchat-logs:/app/logs
+    networks:
+      - p2pchat-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: p2pchat-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Nginx 配置
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # SSL 证书（首次启动会自动生成自签名证书）
+      - nginx-ssl:/etc/nginx/ssl
+      # Let's Encrypt 证书（可选）
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+      # 静态文件
+      - p2pchat-uploads:/usr/share/nginx/uploads:ro
+    networks:
+      - p2pchat-network
+    depends_on:
+      - p2pchat
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # Certbot - SSL 证书自动续期（可选）
+  certbot:
+    image: certbot/certbot
+    container_name: p2pchat-certbot
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - nginx
+    profiles:
+      - ssl
+
+  # 定时备份服务
+  backup:
+    build: .
+    container_name: p2pchat-backup
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/chat.db
+      - BACKUP_DIR=/app/data/backups
+      - ARCHIVE_DIR=/app/data/archives
+      - BACKUP_RETENTION_DAYS=30
+      - ARCHIVE_DAYS=90
+    volumes:
+      - p2pchat-data:/app/data
+      - p2pchat-backups:/app/backups
+    command: >
+      sh -c "
+        echo '0 2 * * * cd /app && npm run backup >> /app/logs/backup.log 2>&1' | crontab - &&
+        crond -f -L /dev/null
+      "
+    depends_on:
+      - p2pchat
+    profiles:
+      - backup
+
+# 数据卷
+volumes:
+  p2pchat-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data
+      o: bind
+  p2pchat-uploads:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./uploads
+      o: bind
+  p2pchat-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./logs
+      o: bind
+  p2pchat-backups:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/backups
+      o: bind
+  nginx-ssl:
+    driver: local
+  certbot-conf:
+    driver: local
+  certbot-www:
+    driver: local
+
+# 网络
+networks:
+  p2pchat-network:
+    driver: bridge

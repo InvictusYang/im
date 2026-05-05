@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商场客服示例 - P2PChat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+    
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    
+    /* 登录区域 */
+    .auth-section {
+      max-width: 400px;
+      margin: 100px auto;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .auth-section h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 500;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    
+    .btn:hover { background: #5568d3; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .btn-secondary {
+      background: #48bb78;
+      margin-top: 10px;
+    }
+    
+    .toggle-auth {
+      text-align: center;
+      margin-top: 20px;
+      color: #667eea;
+      cursor: pointer;
+    }
+    
+    /* 商场主界面 */
+    .mall-container { display: none; }
+    
+    .header {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .header h2 { color: #333; margin-bottom: 10px; }
+    
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e0e0e0;
+    }
+    
+    .btn-logout {
+      padding: 8px 16px;
+      background: #f56565;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    
+    /* 订单列表 */
+    .order-list {
+      display: grid;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .order-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .order-card h3 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .order-info {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    
+    .btn-contact {
+      padding: 10px 20px;
+      background: #4299e1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    
+    .btn-contact:hover { background: #3182ce; }
+    
+    /* 聊天窗口 */
+    .chat-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .chat-window {
+      background: white;
+      width: 90%;
+      max-width: 600px;
+      height: 80vh;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chat-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .chat-header h3 { color: #333; }
+    
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+    
+    .message {
+      margin-bottom: 15px;
+      display: flex;
+    }
+    
+    .message.own { justify-content: flex-end; }
+    .message.other { justify-content: flex-start; }
+    
+    .message-bubble {
+      max-width: 70%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      position: relative;
+    }
+    
+    .message.own .message-bubble {
+      background: #667eea;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .message.other .message-bubble {
+      background: white;
+      color: #333;
+      border: 1px solid #e0e0e0;
+      border-bottom-left-radius: 4px;
+    }
+    
+    .message-time {
+      font-size: 11px;
+      margin-top: 4px;
+      opacity: 0.7;
+      text-align: right;
+    }
+    
+    .message-order-tag {
+      margin-top: 8px;
+      font-size: 12px;
+      padding: 4px 8px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+      display: inline-block;
+    }
+    
+    .chat-input-area {
+      padding: 20px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .chat-input-area input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .btn-send {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    
+    .btn-upload {
+      padding: 12px;
+      background: #48bb78;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    
+    .error-message {
+      background: #fed7d7;
+      color: #c53030;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-connected { background: #48bb78; }
+    .status-disconnected { background: #f56565; }
+  </style>
+</head>
+<body>
+  <!-- 登录/注册界面 -->
+  <div id="authSection" class="auth-section">
+    <h1>🛒 商场客服系统</h1>
+    
+    <div id="errorMessage"></div>
+    
+    <form id="authForm">
+      <div class="form-group" id="displayNameGroup" style="display: none;">
+        <label>显示名称</label>
+        <input type="text" id="displayName" placeholder="可选">
+      </div>
+      
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="username" placeholder="请输入用户名" required minlength="3">
+      </div>
+      
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="请输入密码" required minlength="6">
+      </div>
+      
+      <button type="submit" class="btn" id="authBtn">登录</button>
+    </form>
+    
+    <div class="toggle-auth" id="toggleAuth">
+      没有账号？<strong>注册</strong>
+    </div>
+  </div>
+  
+  <!-- 商场主界面 -->
+  <div id="mallSection" class="mall-container">
+    <div class="container">
+      <div class="header">
+        <h2>🛍️ 我的订单</h2>
+        <div class="user-info">
+          <div>
+            <span id="statusIndicator" class="status-indicator status-disconnected"></span>
+            <span id="currentUsername"></span>
+          </div>
+          <button class="btn-logout" onclick="logout()">退出登录</button>
+        </div>
+      </div>
+      
+      <div class="order-list">
+        <div class="order-card">
+          <h3>📦 订单 #ORD-2024-001</h3>
+          <div class="order-info">
+            <p>商品：iPhone 15 Pro</p>
+            <p>金额：¥8,999</p>
+            <p>状态：已发货</p>
+          </div>
+          <button class="btn-contact" onclick="openChat('ORD-2024-001')">
+            💬 联系客服
+          </button>
+        </div>
+        
+        <div class="order-card">
+          <h3>📦 订单 #ORD-2024-002</h3>
+          <div class="order-info">
+            <p>商品：MacBook Air M3</p>
+            <p>金额：¥12,999</p>
+            <p>状态：待付款</p>
+          </div>
+          <button class="btn-contact" onclick="openChat('ORD-2024-002')">
+            💬 联系客服
+          </button>
+        </div>
+        
+        <div class="order-card">
+          <h3>📦 订单 #ORD-2024-003</h3>
+          <div class="order-info">
+            <p>商品：AirPods Pro</p>
+            <p>金额：¥1,999</p>
+            <p>状态：已完成</p>
+          </div>
+          <button class="btn-contact" onclick="openChat('ORD-2024-003')">
+            💬 联系客服
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 聊天窗口 -->
+  <div id="chatModal" class="chat-modal">
+    <div class="chat-window">
+      <div class="chat-header">
+        <h3 id="chatTitle">💬 客服咨询</h3>
+        <button class="btn-close" onclick="closeChat()">&times;</button>
+      </div>
+      
+      <div id="chatMessages" class="chat-messages"></div>
+      
+      <div class="chat-input-area">
+        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+        <button class="btn-upload" onclick="document.getElementById('imageInput').click()">
+          📷
+        </button>
+        <input type="text" id="messageInput" placeholder="输入消息..." onkeypress="handleKeyPress(event)">
+        <button class="btn-send" onclick="sendMessage()">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api';
+    let currentUser = null;
+    let p2pchat = null;
+    let currentRoomId = null;
+    let currentOrderId = null;
+    let isRegisterMode = false;
+
+    // 切换登录/注册模式
+    document.getElementById('toggleAuth').onclick = function() {
+      isRegisterMode = !isRegisterMode;
+      document.getElementById('authBtn').textContent = isRegisterMode ? '注册' : '登录';
+      document.getElementById('displayNameGroup').style.display = isRegisterMode ? 'block' : 'none';
+      this.innerHTML = isRegisterMode 
+        ? '已有账号？<strong>登录</strong>' 
+        : '没有账号？<strong>注册</strong>';
+      document.getElementById('errorMessage').innerHTML = '';
+    };
+
+    // 登录/注册
+    document.getElementById('authForm').onsubmit = async function(e) {
+      e.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const displayName = document.getElementById('displayName').value;
+      
+      try {
+        const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
+        const body = { username, password };
+        if (isRegisterMode && displayName) {
+          body.displayName = displayName;
+        }
+        
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || '操作失败');
+        }
+        
+        // 保存用户信息
+        currentUser = data.user;
+        currentUser.token = data.token;
+        
+        // 初始化 IM
+        initIM();
+        
+        // 显示商场界面
+        document.getElementById('authSection').style.display = 'none';
+        document.getElementById('mallSection').style.display = 'block';
+        document.getElementById('currentUsername').textContent = currentUser.displayName || currentUser.username;
+        
+      } catch (error) {
+        document.getElementById('errorMessage').innerHTML = 
+          `<div class="error-message">${error.message}</div>`;
+      }
+    };
+
+    // 初始化 IM 连接
+    async function initIM() {
+      // 动态加载 Socket.IO
+      const script = document.createElement('script');
+      script.src = 'http://localhost:3000/socket.io/socket.io.js';
+      script.onload = () => {
+        p2pchat = io('http://localhost:3000', {
+          auth: { token: currentUser.token },
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionAttempts: 10
+        });
+
+        p2pchat.on('connect', () => {
+          console.log('✅ Socket 连接成功');
+          document.getElementById('statusIndicator').className = 'status-indicator status-connected';
+          p2pchat.emit('authenticate', currentUser.token);
+        });
+
+        p2pchat.on('authenticated', () => {
+          console.log('✅ IM 认证成功');
+          loadRooms();
+        });
+
+        p2pchat.on('message:new', (message) => {
+          if (message.room_id === currentRoomId) {
+            appendMessage(message);
+          }
+        });
+
+        p2pchat.on('disconnect', () => {
+          document.getElementById('statusIndicator').className = 'status-indicator status-disconnected';
+        });
+
+        p2pchat.on('reconnect', () => {
+          document.getElementById('statusIndicator').className = 'status-indicator status-connected';
+          p2pchat.emit('authenticate', currentUser.token);
+        });
+      };
+      document.head.appendChild(script);
+    }
+
+    // 加载房间列表
+    async function loadRooms() {
+      try {
+        const response = await fetch(`${API_BASE}/messages/rooms`, {
+          headers: { 'Authorization': `Bearer ${currentUser.token}` }
+        });
+        const data = await response.json();
+        console.log('房间列表:', data.rooms);
+      } catch (error) {
+        console.error('加载房间失败:', error);
+      }
+    }
+
+    // 打开聊天窗口
+    async function openChat(orderId) {
+      currentOrderId = orderId;
+      document.getElementById('chatTitle').textContent = `💬 客服咨询 - ${orderId}`;
+      document.getElementById('chatModal').style.display = 'flex';
+      document.getElementById('chatMessages').innerHTML = '';
+
+      try {
+        // 先获取房间列表
+        const roomsResponse = await fetch(`${API_BASE}/messages/rooms`, {
+          headers: { 'Authorization': `Bearer ${currentUser.token}` }
+        });
+        const roomsData = await roomsResponse.json();
+        
+        // 查找是否已有与客服的聊天房间
+        let existingRoom = null;
+        if (roomsData.rooms && roomsData.rooms.length > 0) {
+          // 找到第一个 direct 类型的房间
+          existingRoom = roomsData.rooms.find(r => r.type === 'direct');
+        }
+        
+        if (existingRoom) {
+          // 使用已有房间
+          currentRoomId = existingRoom.id;
+          console.log('使用已有房间:', currentRoomId);
+        } else {
+          // 创建新房间
+          const roomPromise = new Promise((resolve) => {
+            p2pchat.once('room:created', (data) => {
+              resolve(data.roomId);
+            });
+          });
+          
+          p2pchat.emit('room:create:direct', { targetUserId: 'cs_01' });
+          currentRoomId = await roomPromise;
+          console.log('创建新房间:', currentRoomId);
+        }
+        
+        // 加入房间
+        p2pchat.emit('room:join', currentRoomId);
+        
+        // 加载历史消息
+        const response = await fetch(`${API_BASE}/messages/rooms/${currentRoomId}/messages?limit=50`, {
+          headers: { 'Authorization': `Bearer ${currentUser.token}` }
+        });
+        const data = await response.json();
+        
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(msg => appendMessage(msg));
+          console.log(`加载了 ${data.messages.length} 条历史消息`);
+        } else {
+          console.log('没有历史消息');
+        }
+      } catch (error) {
+        console.error('打开聊天窗口失败:', error);
+        document.getElementById('chatMessages').innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">加载失败，请重试</p>';
+      }
+    }
+
+    // 关闭聊天窗口
+    function closeChat() {
+      document.getElementById('chatModal').style.display = 'none';
+    }
+
+    // 发送消息
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const content = input.value.trim();
+      
+      if (!content || !currentRoomId) return;
+      
+      p2pchat.emit('message:send', {
+        roomId: currentRoomId,
+        type: 'text',
+        content: content,
+        orderId: currentOrderId
+      });
+      
+      input.value = '';
+    }
+
+    // 上传图片
+    document.getElementById('imageInput').onchange = async function(e) {
+      const file = e.target.files[0];
+      if (!file || !currentRoomId) return;
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      try {
+        const response = await fetch(`${API_BASE}/upload/image`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${currentUser.token}` },
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        p2pchat.emit('message:send', {
+          roomId: currentRoomId,
+          type: 'image',
+          content: '图片',
+          fileUrl: data.url,
+          orderId: currentOrderId
+        });
+      } catch (error) {
+        alert('图片上传失败');
+      }
+      
+      e.target.value = '';
+    };
+
+    // 添加消息到界面
+    function appendMessage(msg) {
+      const messagesDiv = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${msg.sender_id === currentUser.id ? 'own' : 'other'}`;
+      
+      const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      let contentHtml = '';
+      if (msg.type === 'image') {
+        contentHtml = `<img src="http://localhost:3000${msg.file_url}" style="max-width: 250px; border-radius: 8px;">`;
+      } else {
+        contentHtml = `<div>${msg.content}</div>`;
+      }
+      
+      messageDiv.innerHTML = `
+        <div class="message-bubble">
+          ${contentHtml}
+          ${msg.order_id ? `<div class="message-order-tag">📦 ${msg.order_id}</div>` : ''}
+          <div class="message-time">${time}</div>
+        </div>
+      `;
+      
+      messagesDiv.appendChild(messageDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // 处理回车键
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    // 退出登录
+    function logout() {
+      if (p2pchat) {
+        p2pchat.disconnect();
+      }
+      currentUser = null;
+      currentRoomId = null;
+      document.getElementById('authSection').style.display = 'block';
+      document.getElementById('mallSection').style.display = 'none';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+    }
+  </script>
+</body>
+</html>
